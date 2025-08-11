@@ -323,8 +323,11 @@ func newDefaultOptions() *options {
 /*
 fieldInfo gets the field info according to the field's tag, or gets StructField.Name default when the field's tag is empty.
 It returns:
+
 - name: the field name (or tag name)
+
 - omitempty: true if the tag contains "omitempty"
+
 - omitzero: true if the tag contains "omitzero"
 */
 func fieldInfo(tag string, f reflect.StructField) (name string, omitempty bool, omitzero bool) {
