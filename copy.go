@@ -320,14 +320,14 @@ func newDefaultOptions() *options {
 	}
 }
 
-// fieldName gets the field name according to the field's tag, or gets StructField.Name default when the field's tag is empty.
-func fieldName(tag string, f reflect.StructField) (name string) {
-	name, _ = fieldInfo(tag, f)
-	return
-}
-
-// fieldInfo gets the field info according to the field's tag, or gets StructField.Name default when the field's tag is empty.
-func fieldInfo(tag string, f reflect.StructField) (name string, omitempty bool) {
+/*
+fieldInfo gets the field info according to the field's tag, or gets StructField.Name default when the field's tag is empty.
+It returns:
+- name: the field name (or tag name)
+- omitempty: true if the tag contains "omitempty"
+- omitzero: true if the tag contains "omitzero"
+*/
+func fieldInfo(tag string, f reflect.StructField) (name string, omitempty bool, omitzero bool) {
 	name = f.Name
 	if tag == "" {
 		return
@@ -341,9 +341,17 @@ func fieldInfo(tag string, f reflect.StructField) (name string, omitempty bool) 
 	for i := 1; i < len(ss); i++ {
 		if ss[i] == "omitempty" {
 			omitempty = true
-			return
+		}
+		if ss[i] == "omitzero" {
+			omitzero = true
 		}
 	}
+	return
+}
+
+// fieldName gets the field name according to the field's tag, or gets StructField.Name default when the field's tag is empty.
+func fieldName(tag string, f reflect.StructField) (name string) {
+	name, _, _ = fieldInfo(tag, f)
 	return
 }
 
@@ -384,8 +392,8 @@ func structToMap(filter FieldFilter, src, dst reflect.Value, userOptions *option
 				}
 			}
 			srcField := indirect(src.Field(i))
-			dstName, omitempty := fieldInfo(userOptions.DstTag, srcType.Field(i))
-			if dstName == "-" || (omitempty && (!srcField.IsValid() || srcField.IsZero())) { //Check IsValid because it may be indirected
+			dstName, omitempty, omitzero := fieldInfo(userOptions.DstTag, srcType.Field(i))
+			if dstName == "-" || (omitempty && (!srcField.IsValid() || isEmptyValue(srcField))) || (omitzero && (!srcField.IsValid() || srcField.IsZero())) {
 				continue
 			}
 			mapValue := indirect(dst.MapIndex(reflect.ValueOf(dstName)))
@@ -551,6 +559,20 @@ func newValue(t reflect.Type) reflect.Value {
 // isExported is a backport of reflect.StructField.IsExported() for the older versions of golang (<1.17).
 func isExported(f reflect.StructField) bool {
 	return f.PkgPath == ""
+}
+
+func isEmptyValue(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64,
+		reflect.Interface, reflect.Pointer:
+		return v.IsZero()
+	}
+	return false
 }
 
 func GetMaskedFields(data interface{}, fields string, tag string) (out map[string]interface{}, err error) {
