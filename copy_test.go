@@ -12,6 +12,64 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestStructToMap_OmitEmpty(t *testing.T) {
+	type A struct {
+		T time.Time `json:"t,omitempty"`
+		S string    `json:"s,omitempty"`
+		N int       `json:"n,omitempty"`
+		B bool      `json:"b,omitempty"`
+	}
+	zero := time.Time{}
+	src := &A{
+		T: zero,
+		S: "",
+		N: 0,
+		B: false,
+	}
+	dst := map[string]interface{}{}
+	mask := fieldmask_utils.MaskFromString("T,S,N,B")
+	err := fieldmask_utils.StructToMap(mask, src, dst, fieldmask_utils.WithTag("json"))
+	require.NoError(t, err)
+	// T should NOT be omitted (json.Marshal does not omit zero time.Time)
+	_, hasT := dst["t"]
+	assert.True(t, hasT)
+	// S, N, B should be omitted
+	_, hasS := dst["s"]
+	_, hasN := dst["n"]
+	_, hasB := dst["b"]
+	assert.False(t, hasS)
+	assert.False(t, hasN)
+	assert.False(t, hasB)
+}
+
+func TestStructToMap_OmitZero(t *testing.T) {
+	type A struct {
+		T time.Time `json:"t,omitzero"`
+		S string    `json:"s,omitzero"`
+		N int       `json:"n,omitzero"`
+		B bool      `json:"b,omitzero"`
+	}
+	zero := time.Time{}
+	src := &A{
+		T: zero,
+		S: "",
+		N: 0,
+		B: false,
+	}
+	dst := map[string]interface{}{}
+	mask := fieldmask_utils.MaskFromString("T,S,N,B")
+	err := fieldmask_utils.StructToMap(mask, src, dst, fieldmask_utils.WithTag("json"))
+	require.NoError(t, err)
+	_, hasT := dst["t"]
+	_, hasS := dst["s"]
+	_, hasN := dst["n"]
+	_, hasB := dst["b"]
+	assert.False(t, hasT)
+	assert.False(t, hasS)
+	assert.False(t, hasN)
+	assert.False(t, hasB)
+}
+
 func TestStructToStruct_SimpleStruct(t *testing.T) {
 	type A struct {
 		Field1 string
