@@ -564,6 +564,12 @@ func isExported(f reflect.StructField) bool {
 	return f.PkgPath == ""
 }
 
+// isEmptyValue returns true if the value is considered "empty": for collections and strings, this means zero length,
+// while for other types it returns true if the value is the zero value for its type (using reflect.Value.IsZero).
+// This differs from reflect.Value.IsZero() in that "empty" includes zero-length slices, maps, arrays, and strings,
+// which may not be considered zero values for all use cases.
+//
+// This function is copied from the standard json library.
 func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
