@@ -12,6 +12,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// For omitzero inner struct IsZero test
+type InnerOmitZero struct {
+	Value int
+}
+
+func (i InnerOmitZero) IsZero() bool {
+	return i.Value == 7
+}
+
+// Test omitzero with a struct that implements IsZero
+func TestStructToMap_OmitZero_IsZeroStruct(t *testing.T) {
+	type A struct {
+		Inner InnerOmitZero `json:"inner,omitzero"`
+	}
+	// Case 1: IsZero true should be omitted, test by value is not zero to be sure
+	src1 := &A{
+		Inner: InnerOmitZero{Value: 7},
+	}
+	dst1 := map[string]interface{}{}
+	mask := fieldmask_utils.MaskFromString("Inner")
+	err := fieldmask_utils.StructToMap(mask, src1, dst1, fieldmask_utils.WithTag("json"))
+	require.NoError(t, err)
+	_, hasInner := dst1["inner"]
+	assert.False(t, hasInner, "Field 'inner' should be omitted when IsZero returns true")
+
+	// Case 2: IsZero false, should be present
+	src2 := &A{
+		Inner: InnerOmitZero{Value: 2},
+	}
+	dst2 := map[string]interface{}{}
+	err = fieldmask_utils.StructToMap(mask, src2, dst2, fieldmask_utils.WithTag("json"))
+	require.NoError(t, err)
+	val, hasInner := dst2["inner"]
+	assert.True(t, hasInner, "Field 'inner' should be present when IsZero returns false")
+	assert.Equal(t, map[string]interface{}{"Value": 2}, val)
+
+	// Case 3: IsZero false even when Value is zero, should be present
+	src3 := &A{
+		Inner: InnerOmitZero{Value: 0},
+	}
+	dst3 := map[string]interface{}{}
+	err = fieldmask_utils.StructToMap(mask, src3, dst3, fieldmask_utils.WithTag("json"))
+	require.NoError(t, err)
+	val, hasInner = dst3["inner"]
+	assert.True(t, hasInner, "Field 'inner' should be present when IsZero returns false")
+	assert.Equal(t, map[string]interface{}{"Value": 0}, val)
+}
+
 func TestStructToMap_OmitEmpty(t *testing.T) {
 	type A struct {
 		T time.Time `json:"t,omitempty"`
