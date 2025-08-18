@@ -396,7 +396,7 @@ func structToMap(filter FieldFilter, src, dst reflect.Value, userOptions *option
 			}
 			srcField := indirect(src.Field(i))
 			dstName, omitempty, omitzero := fieldInfo(userOptions.DstTag, srcType.Field(i))
-			if dstName == "-" || (omitempty && (!srcField.IsValid() || isEmptyValue(srcField))) || (omitzero && (!srcField.IsValid() || srcField.IsZero())) {
+			if dstName == "-" || (omitempty && (!srcField.IsValid() || isEmptyValue(srcField))) || (omitzero && (!srcField.IsValid() || isZeroValue(srcField))) {
 				continue
 			}
 			mapValue := indirect(dst.MapIndex(reflect.ValueOf(dstName)))
@@ -580,6 +580,30 @@ func isEmptyValue(v reflect.Value) bool {
 		return v.IsZero()
 	}
 	return false
+}
+
+// isZeroValue returns true if the value is considered zero, using a user-defined IsZero() bool method if present.
+func isZeroValue(v reflect.Value) bool {
+	orig := v
+	if v.Kind() == reflect.Ptr && !v.IsNil() {
+		v = v.Elem()
+	}
+	if v.Kind() == reflect.Struct {
+		method := v.MethodByName("IsZero")
+		if method.IsValid() && method.Type().NumIn() == 0 && method.Type().NumOut() == 1 && method.Type().Out(0).Kind() == reflect.Bool {
+			result := method.Call(nil)
+			return result[0].Bool()
+		}
+		// Also check pointer receiver
+		if orig.Kind() == reflect.Ptr && !orig.IsNil() {
+			method := orig.MethodByName("IsZero")
+			if method.IsValid() && method.Type().NumIn() == 0 && method.Type().NumOut() == 1 && method.Type().Out(0).Kind() == reflect.Bool {
+				result := method.Call(nil)
+				return result[0].Bool()
+			}
+		}
+	}
+	return v.IsZero()
 }
 
 func GetMaskedFields(data interface{}, fields string, tag string) (out map[string]interface{}, err error) {
